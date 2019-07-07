@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>聊天室</title>
+    <base>
+    <!--<script type="text/javascript" src="js/jquery-1.8.2.js"></script>-->
+    <script type="text/javascript" src="https://code.jquery.com/jquery-1.12.4.js"></script>
+    <!--<script type="text/javascript" src="js/socket.io-1.4.5.js"></script>-->
+    <!--<script src="ckeditor/ckeditor.js"></script>-->
+    <script src="https://cdn.ckeditor.com/4.11.2/standard/ckeditor.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.js"></script>
+    <script src="http://cdn.bootcss.com/blueimp-md5/1.1.0/js/md5.js"></script>
+    <style>
+        body {
+            padding: 20px;
+        }
+
+        #console {
+            height: 300px;
+            overflow: auto;
+        }
+
+        .username-msg {
+            color: orange;
+        }
+
+        .connect-msg {
+            color: green;
+        }
+
+        .disconnect-msg {
+            color: red;
+        }
+
+        .send-msg {
+            color: #888
+        }
+    </style>
+</head>
+<body>
+<h1>测试聊天室</h1>
+<!-- <br /> -->
+<div id="console" class="well"></div>
+<form class="well form-inline" onsubmit="return false;">
+    <input id="msg" class="input-xlarge" placeholder="请输入内容"/>
+    <button type="button" onClick="sendMessage()" class="btn">发送</button>
+    <button type="button" onClick="sendDisconnect()" class="btn">下线</button>
+    <button type="button" onClick="reloadThis()" class="btn">重连</button>
+</form>
+</body>
+<script type="text/javascript">
+    // $(function () {
+    $("#file").change(function (e) {
+        var file = e.target.files[0] || e.dataTransfer.files[0];
+        $('#photoCover').val(document.getElementById("file").files[0].name);
+        if (file) {
+            var reader = new FileReader();
+            reader.onload = function () {
+                $("img").attr("src", this.result);
+            }
+            reader.readAsDataURL(file);
+        }
+    });
+    // })
+
+
+    var socket;
+    connect();
+
+    function connect() {
+        var ri = 1;
+        var platform = "NEW_KJ";
+        socket = io.connect("http://172.168.30.116:8844?roomId=" + ri + "&platform=" + platform);
+        socket.on('connect', function () {
+            // 连接聊天室成功
+        });
+        socket.on('disconnect', function () {
+            serverOutput('<span class="disconnect-msg">' + $("#name").val() + '已下线! </span>');
+
+        });
+        //进入房间
+        socket.on('csIntoRoom', function (data) {
+            var dataObj = JSON.parse(data);
+            output('<span class="disconnect-msg">' + dataObj.content + '</span>');
+        });
+        //聊天
+        socket.on('cChatC', function (data) {
+            var formatTime = formatDateTime(data.time);
+            serverOutput('<span class="username-msg">' + '推送消息:' + '&nbsp;' + formatTime + ':' + data.message);
+        });
+        //聊天
+        socket.on('Winning', function (data) {
+            var formatTime = formatDateTime(data.time);
+            serverOutput('<span class="username-msg">' + '中奖消息:' + '&nbsp;' + formatTime + ':' + data.message);
+
+        });
+        //获取历史聊天记录
+        socket.on('getHistoryMessage', function (data) {
+            console.log(data);
+            for (var key in data) {
+                var datum = data[key];
+                var formatTime = formatDateTime(datum.time);
+                serverOutput('<span class="username-msg">' + '&nbsp;' + formatTime + ':' + datum.message);
+                var div = document.getElementById('console');
+                div.scrollTop = div.scrollHeight;
+            }
+        });
+        //获取是否是禁言用户
+        socket.on('chatBanned', function (data) {
+            if (data) {
+                serverOutput('<span class="disconnect-msg">没有发言权限</span>');
+            }
+        });
+        //客户离开房间事件
+        socket.on('customerLeave', function (data) {
+            if (data) {
+                serverOutput('<span class="disconnect-msg">离开房间</span>');
+            }
+        });
+    }
+
+    function formatDateTime(date) {
+        return new Date(parseInt(date)).toLocaleString().replace(/:\d{1,2}$/, ' ');
+    };
+
+    function reloadThis() {
+        socket.disconnect();
+        connect();
+    }
+
+    function sendDisconnect() {
+        socket.emit('chatevent', {
+            userId: 1,
+            userName: $("#name").val(),
+            receiveUserId: 2,
+            content: "已下线!"
+        });
+        socket.disconnect();
+    }
+
+    function sendMessage() {
+        var message = $('#msg').val();
+        $('#msg').val('');
+
+        var jsonObject = {
+            roomId: "1",
+            platform: "DEV_KJ",
+            message: message
+        };
+        socket.emit('cChatC', jsonObject);
+        // editor.setData("");
+    }
+
+    function output(message) {
+        var element = $("<div>" + " " + message + "</div>");
+        $('#console').append(element);
+    }
+
+    function serverOutput(message) {
+        var element = $("<div>" + message + "</div>" + "<br>");
+        $('#console').append(element);
+    }
+
+
+</script>
+</html>
+</html>
